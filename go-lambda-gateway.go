@@ -69,11 +69,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	request := &events.APIGatewayProxyRequest{
-		Resource:              "/{proxy+}",
-		Path:                  r.URL.Path,
-		HTTPMethod:            r.Method,
-		Headers:               map[string]string{},
-		QueryStringParameters: map[string]string{},
+		Resource:                        "/{proxy+}",
+		Path:                            r.URL.Path,
+		HTTPMethod:                      r.Method,
+		Headers:                         map[string]string{},
+		MultiValueHeaders:               map[string][]string{},
+		QueryStringParameters:           map[string]string{},
+		MultiValueQueryStringParameters: map[string][]string{},
 		PathParameters: map[string]string{
 			"proxy": r.URL.Path[1:],
 		},
@@ -84,11 +86,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	for header, values := range r.Header {
 		for _, value := range values {
 			request.Headers[header] = value
+			request.MultiValueHeaders[header] = append(request.MultiValueHeaders[header], value)
 		}
 	}
 	for key, values := range r.URL.Query() {
 		for _, value := range values {
 			request.QueryStringParameters[key] = value
+			request.MultiValueQueryStringParameters[key] = append(request.MultiValueQueryStringParameters[key], value)
 		}
 	}
 
