@@ -5,9 +5,9 @@ RUN \
   CGO_ENABLED=0 \
   GOOS=linux \
   GOARCH=amd64 \
-  go build -ldflags="-s -w"
+  go build -mod=readonly -ldflags="-s -w"
 
 FROM busybox
-MAINTAINER stefansundin https://github.com/stefansundin/go-lambda-gateway
+LABEL maintainer="stefansundin https://github.com/stefansundin/go-lambda-gateway"
 COPY --from=builder /root/go-lambda-gateway .
 ENTRYPOINT ["./go-lambda-gateway"]
