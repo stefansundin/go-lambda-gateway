@@ -94,7 +94,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		PathParameters:                  nil,
 		StageVariables:                  nil,
 		RequestContext:                  events.APIGatewayProxyRequestContext{},
-		Body:                            "",
+		Body:                            string(body),
 		IsBase64Encoded:                 false,
 	}
 	if r.URL.Path != "/" {
@@ -115,12 +115,9 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			request.MultiValueQueryStringParameters[key] = append(request.MultiValueQueryStringParameters[key], value)
 		}
 	}
-	s := string(body)
-	if IsBinary(s) {
+	if IsBinary(request.Body) {
 		request.IsBase64Encoded = true
 		request.Body = base64.StdEncoding.EncodeToString(body)
-	} else {
-		request.Body = s
 	}
 
 	response, err := invokeLambda(request)
