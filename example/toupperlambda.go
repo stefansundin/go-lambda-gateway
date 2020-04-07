@@ -11,8 +11,7 @@ import (
 
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// r, _ := json.Marshal(request)
-	// fmt.Println(string(r))
-	// fmt.Println()
+	// fmt.Fprintf(os.Stderr, "%v\n", string(r))
 
 	text := "Hello " + request.Path[1:] + "!\n"
 	fmt.Print(text)

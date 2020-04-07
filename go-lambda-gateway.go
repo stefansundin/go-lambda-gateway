@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,12 +12,22 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"unicode"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda/messages"
 )
 
 var lambdaHost string
+
+func IsBinary(s string) bool {
+	for _, r := range s {
+		if r > unicode.MaxASCII || !unicode.IsPrint(r) {
+			return true
+		}
+	}
+	return false
+}
 
 func invokeLambda(request *events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	payload, err := json.Marshal(request)
@@ -83,7 +94,8 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		PathParameters:                  nil,
 		StageVariables:                  nil,
 		RequestContext:                  events.APIGatewayProxyRequestContext{},
-		Body:                            string(body),
+		Body:                            "",
+		IsBase64Encoded:                 false,
 	}
 	if r.URL.Path != "/" {
 		request.Resource = "/{proxy+}"
@@ -103,6 +115,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			request.MultiValueQueryStringParameters[key] = append(request.MultiValueQueryStringParameters[key], value)
 		}
 	}
+	s := string(body)
+	if IsBinary(s) {
+		request.IsBase64Encoded = true
+		request.Body = base64.StdEncoding.EncodeToString(body)
+	} else {
+		request.Body = s
+	}
 
 	response, err := invokeLambda(request)
 	if err != nil {
@@ -116,7 +135,17 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(header, value)
 	}
 	w.WriteHeader(response.StatusCode)
-	fmt.Fprintf(w, response.Body)
+	if response.IsBase64Encoded {
+		bytes, err := base64.StdEncoding.DecodeString(response.Body)
+		if err != nil {
+			log.Printf("Error base64-decoding response body: %v", err)
+			http.Error(w, "Error base64-decoding response body", http.StatusInternalServerError)
+			return
+		}
+		w.Write(bytes)
+	} else {
+		fmt.Fprintf(w, response.Body)
+	}
 
 	// Log something similar to the common log format
 	// host [date] request status bytes
