@@ -1,0 +1,13 @@
+# I run the lambda function natively, but the gateway in docker.
+# I need to use "host.docker.internal" on Mac, but Linux may be different.
+# If you are having issues, just run the gateway natively as well.
+
+version: "3"
+services:
+  go-lambda-gateway:
+    image: stefansundin/go-lambda-gateway
+    ports:
+      - "8002:8002"
+    environment:
+      LAMBDA_HOST: host.docker.internal:8001
+      PAYLOAD_FORMAT_VERSION: '2.0'
