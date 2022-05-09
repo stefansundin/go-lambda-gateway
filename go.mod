@@ -1,3 +1,8 @@
 module github.com/stefansundin/go-lambda-gateway
 
-require github.com/aws/aws-lambda-go v1.8.0
+go 1.14
+
+require (
+	github.com/aws/aws-lambda-go v1.17.0
+	github.com/mitchellh/mapstructure v1.2.2
+)
