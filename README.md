@@ -8,6 +8,12 @@ This project supports the HTTP API payload format, but you need to set `PAYLOAD_
 
 Docker image available: https://hub.docker.com/r/stefansundin/go-lambda-gateway
 
+You can also install and run the program natively:
+
+```
+go install github.com/stefansundin/go-lambda-gateway@latest
+```
+
 Note: Beware of the capitalization of your headers. This program uses Go's `net/http` server, which will normalize the capitalization of your headers according to its own `CanonicalHeaderKey` function, whereas Amazon API Gateway does not manipulate the capitalization at all (but if you send the same header multiple times with different capitalization, it will use the first capitalization).
 
 You may also be interested in [go-lambda-invoke](https://github.com/stefansundin/go-lambda-invoke).
