@@ -1,4 +1,4 @@
-This program is a tiny Amazon API Gateway emulator, letting you invoke Go Lambda functions (running locally) over HTTP. At the moment, it proxies all requests to a single function.
+This program is a tiny Amazon API Gateway emulator, letting you invoke Go AWS Lambda functions (running locally) over HTTP. At the moment, it proxies all requests to a single function.
 
 I'm sure there are bugs, and it's not very customizable. If you have use cases that aren't covered yet, feel free to submit pull requests!
 
@@ -8,9 +8,9 @@ This project supports the HTTP API payload format, but you need to set `PAYLOAD_
 
 Docker image available: https://hub.docker.com/r/stefansundin/go-lambda-gateway
 
-You can also install and run the program natively:
+You can also use the program without using Docker:
 
-```
+```shell
 go install github.com/stefansundin/go-lambda-gateway@latest
 ```
 
