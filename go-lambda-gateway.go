@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/rpc"
@@ -88,7 +88,7 @@ func invokeLambda(payload []byte) (*events.APIGatewayProxyResponse, error) {
 }
 
 func handleRequestV1(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("Error reading body: %v", err)
 		http.Error(w, "Error reading body", http.StatusBadRequest)
@@ -173,7 +173,7 @@ func handleRequestV1(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRequestV2(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("Error reading body: %v", err)
 		http.Error(w, "Error reading body", http.StatusBadRequest)
