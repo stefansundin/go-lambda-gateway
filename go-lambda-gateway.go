@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/rpc"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +23,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+var port int
+var protocol string = "http"
 var lambdaHost string
 var payloadFormatVersion string
 
@@ -95,6 +100,9 @@ func handleRequestV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	portDelimiterIndex := strings.LastIndexByte(r.RemoteAddr, ':')
+	remoteIP := r.RemoteAddr[0:portDelimiterIndex]
+
 	request := &events.APIGatewayProxyRequest{
 		Resource:   "/",
 		Path:       r.URL.Path,
@@ -113,24 +121,33 @@ func handleRequestV1(w http.ResponseWriter, r *http.Request) {
 		Body:                            string(body),
 		IsBase64Encoded:                 false,
 	}
+
 	if r.URL.Path != "/" {
 		request.Resource = "/{proxy+}"
 		request.PathParameters = map[string]string{
 			"proxy": r.URL.Path[1:],
 		}
 	}
+
 	for header, values := range r.Header {
 		for _, value := range values {
 			request.Headers[header] = value
 			request.MultiValueHeaders[header] = append(request.MultiValueHeaders[header], value)
 		}
 	}
+
+	request.Headers["x-amzn-trace-id"] = "Root=0-00000000-000000000000000000000000"
+	request.Headers["x-forwarded-for"] = remoteIP
+	request.Headers["x-forwarded-port"] = strconv.Itoa(port)
+	request.Headers["x-forwarded-proto"] = protocol
+
 	for key, values := range r.URL.Query() {
 		for _, value := range values {
 			request.QueryStringParameters[key] = value
 			request.MultiValueQueryStringParameters[key] = append(request.MultiValueQueryStringParameters[key], value)
 		}
 	}
+
 	if IsBinary(request.Body) {
 		request.IsBase64Encoded = true
 		request.Body = base64.StdEncoding.EncodeToString(body)
@@ -220,9 +237,11 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 		Body:            string(body),
 		IsBase64Encoded: false,
 	}
+
 	for _, c := range r.Cookies() {
 		request.Cookies = append(request.Cookies, c.Name+"="+c.Value)
 	}
+
 	for header, values := range r.Header {
 		h := strings.ToLower(header)
 		for _, value := range values {
@@ -232,11 +251,18 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	request.Headers["x-amzn-trace-id"] = "Root=0-00000000-000000000000000000000000"
+	request.Headers["x-forwarded-for"] = remoteIP
+	request.Headers["x-forwarded-port"] = strconv.Itoa(port)
+	request.Headers["x-forwarded-proto"] = protocol
+
 	for key, values := range r.URL.Query() {
 		for _, value := range values {
 			request.QueryStringParameters[key] = value
 		}
 	}
+
 	if IsBinary(request.Body) {
 		request.IsBase64Encoded = true
 		request.Body = base64.StdEncoding.EncodeToString(body)
@@ -285,11 +311,38 @@ func main() {
 	}
 	fmt.Fprintf(os.Stderr, "Lambda address: %s\n", lambdaHost)
 
-	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	var keyfile, certfile string
+	keyfiles, err := filepath.Glob("*.key")
+	if err == nil && len(keyfiles) > 0 {
+		keyfile = keyfiles[0]
+		certfile = keyfile[0:len(keyfile)-3] + "crt"
+		_, err = os.Stat(certfile)
+		if errors.Is(err, fs.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "Warning: Found %s but not %s.\n", keyfile, certfile)
+		} else {
+			protocol = "https"
+			fmt.Fprintf(os.Stderr, "TLS certificate files: %s and %s\n", certfile, keyfile)
+		}
+	}
+
+	port, _ = strconv.Atoi(os.Getenv("PORT"))
 	if port == 0 {
-		port = 8002
+		if protocol == "https" {
+			port = 443
+		} else {
+			port = 8002
+		}
 	}
 	fmt.Fprintf(os.Stderr, "Listening on port: %d\n", port)
+	u := url.URL{
+		Scheme: protocol,
+		Host:   "localhost",
+		Path:   "/",
+	}
+	if (protocol == "http" && port != 80) || (protocol == "https" && port != 443) {
+		u.Host += fmt.Sprintf(":%d", port)
+	}
+	fmt.Fprintf(os.Stderr, "URL: %s\n", u.String())
 
 	payloadFormatVersion = os.Getenv("PAYLOAD_FORMAT_VERSION")
 	if payloadFormatVersion == "" {
@@ -306,8 +359,16 @@ func main() {
 	fmt.Fprintf(os.Stderr, "Payload format version: %s\n", payloadFormatVersion)
 	fmt.Fprintln(os.Stderr)
 
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	addr := fmt.Sprintf(":%d", port)
+	if protocol == "http" {
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			log.Fatal("ListenAndServe: ", err)
+		}
+	} else {
+		err := http.ListenAndServeTLS(addr, certfile, keyfile, nil)
+		if err != nil {
+			log.Fatal("ListenAndServeTLS: ", err)
+		}
 	}
 }

@@ -1,7 +1,7 @@
 Start `go-lambda-gateway`:
 
 ```shell
-docker-compose up
+docker compose up
 ```
 
 Start the lambda function:

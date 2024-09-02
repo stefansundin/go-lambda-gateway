@@ -1,5 +1,7 @@
 go-lambda-gateway
 toupperlambda
+*.crt
+*.key
 
 Thumbs.db
 *.DS_Store
