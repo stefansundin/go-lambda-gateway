@@ -2,7 +2,6 @@
 # I need to use "host.docker.internal" on Mac, but Linux may be different.
 # If you are having issues, just run the gateway natively as well.
 
-version: "3"
 services:
   go-lambda-gateway:
     image: stefansundin/go-lambda-gateway
