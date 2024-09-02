@@ -4,7 +4,7 @@ COPY . .
 RUN \
   CGO_ENABLED=0 \
   GOOS=linux \
-  go build -mod=readonly -ldflags="-s -w"
+  go build -mod=readonly -ldflags="-s -w" -trimpath
 
 FROM busybox
 LABEL org.opencontainers.image.authors="Stefan Sundin"

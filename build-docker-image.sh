@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # vanilla build:
-# docker build -t stefansundin/go-lambda-gateway .
+# docker build --pull -t stefansundin/go-lambda-gateway .
 
 # multi-arch build:
 docker buildx create --use --name multiarch --node multiarch0
