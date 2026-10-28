@@ -57,6 +57,7 @@ func invokeLambda(payload []byte) (*events.APIGatewayProxyResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer client.Close()
 	var invokeResponse messages.InvokeResponse
 	if err = client.Call("Function.Invoke", invokeRequest, &invokeResponse); err != nil {
 		return nil, err
@@ -73,7 +74,10 @@ func invokeLambda(payload []byte) (*events.APIGatewayProxyResponse, error) {
 			return nil, err
 		}
 		if _, ok := jsonData["statusCode"]; ok {
-			mapstructure.Decode(jsonData, &response)
+			err = mapstructure.Decode(jsonData, &response)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			response.IsBase64Encoded = false
 			response.StatusCode = 200
@@ -168,20 +172,28 @@ func handleRequestV1(w http.ResponseWriter, r *http.Request) {
 	}
 	// fmt.Printf("Response: %v\n", response)
 
-	for header, value := range response.Headers {
-		w.Header().Set(header, value)
-	}
-	w.WriteHeader(response.StatusCode)
+	var responseBody []byte
 	if response.IsBase64Encoded {
-		bytes, err := base64.StdEncoding.DecodeString(response.Body)
+		responseBody, err = base64.StdEncoding.DecodeString(response.Body)
 		if err != nil {
 			log.Printf("Error base64-decoding response body: %v", err)
 			http.Error(w, "Error base64-decoding response body", http.StatusInternalServerError)
 			return
 		}
-		w.Write(bytes)
 	} else {
-		fmt.Fprintf(w, response.Body)
+		responseBody = []byte(response.Body)
+	}
+
+	for header, value := range response.Headers {
+		w.Header().Set(header, value)
+	}
+	w.WriteHeader(response.StatusCode)
+
+	_, err = w.Write(responseBody)
+	if err != nil {
+		log.Printf("Error writing response body: %v", err)
+		http.Error(w, "Error writing response body", http.StatusInternalServerError)
+		return
 	}
 
 	// Log something similar to the common log format
@@ -283,20 +295,28 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 	}
 	// fmt.Printf("Response: %v\n", response)
 
-	for header, value := range response.Headers {
-		w.Header().Set(header, value)
-	}
-	w.WriteHeader(response.StatusCode)
+	var responseBody []byte
 	if response.IsBase64Encoded {
-		bytes, err := base64.StdEncoding.DecodeString(response.Body)
+		responseBody, err = base64.StdEncoding.DecodeString(response.Body)
 		if err != nil {
 			log.Printf("Error base64-decoding response body: %v", err)
 			http.Error(w, "Error base64-decoding response body", http.StatusInternalServerError)
 			return
 		}
-		w.Write(bytes)
 	} else {
-		fmt.Fprintf(w, response.Body)
+		responseBody = []byte(response.Body)
+	}
+
+	for header, value := range response.Headers {
+		w.Header().Set(header, value)
+	}
+	w.WriteHeader(response.StatusCode)
+
+	_, err = w.Write(responseBody)
+	if err != nil {
+		log.Printf("Error writing response body: %v", err)
+		http.Error(w, "Error writing response body", http.StatusInternalServerError)
+		return
 	}
 
 	// Log something similar to the common log format
@@ -348,11 +368,12 @@ func main() {
 	if payloadFormatVersion == "" {
 		payloadFormatVersion = "1.0"
 	}
-	if payloadFormatVersion == "1.0" {
+	switch payloadFormatVersion {
+	case "1.0":
 		http.HandleFunc("/", handleRequestV1)
-	} else if payloadFormatVersion == "2.0" {
+	case "2.0":
 		http.HandleFunc("/", handleRequestV2)
-	} else {
+	default:
 		fmt.Fprintf(os.Stderr, "Error: unknown payload format version: %s\n", payloadFormatVersion)
 		os.Exit(1)
 	}
