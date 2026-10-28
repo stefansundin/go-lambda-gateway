@@ -198,7 +198,7 @@ func handleRequestV1(w http.ResponseWriter, r *http.Request) {
 
 	// Log something similar to the common log format
 	// host [date] request status bytes
-	fmt.Printf("%s [%v] \"%s %s\" %v\n", r.Host, time.Now().Format("2006-01-02 15:04:05"), r.Method, r.URL.Path, len(response.Body))
+	fmt.Printf("%s [%v] \"%s %s\" %v %v\n", r.Host, time.Now().Format("2006-01-02 15:04:05"), r.Method, r.URL.Path, response.StatusCode, len(response.Body))
 }
 
 func handleRequestV2(w http.ResponseWriter, r *http.Request) {
@@ -321,7 +321,7 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 
 	// Log something similar to the common log format
 	// host [date] request status bytes
-	fmt.Printf("%s [%v] \"%s %s\" %v\n", r.Host, now.Format("2006-01-02 15:04:05"), r.Method, r.URL.Path, len(response.Body))
+	fmt.Printf("%s [%v] \"%s %s\" %v %v\n", r.Host, now.Format("2006-01-02 15:04:05"), r.Method, r.URL.Path, response.StatusCode, len(response.Body))
 }
 
 func main() {
