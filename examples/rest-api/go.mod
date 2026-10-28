@@ -1,5 +1,5 @@
 module toupperlambda
 
-go 1.14
+go 1.26
 
-require github.com/aws/aws-lambda-go v1.47.0
+require github.com/aws/aws-lambda-go v1.55.1
