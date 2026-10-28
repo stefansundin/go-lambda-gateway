@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda/messages"
@@ -30,12 +31,34 @@ var lambdaHost string
 var payloadFormatVersion string
 
 func IsBinary(s string) bool {
+	if !utf8.ValidString(s) {
+		return true
+	}
 	for _, r := range s {
-		if r > unicode.MaxASCII || !unicode.IsPrint(r) {
+		if unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t' {
 			return true
 		}
 	}
 	return false
+}
+
+func remoteIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func hostWithoutPort(host string) string {
+	h, _, err := net.SplitHostPort(host)
+	if err == nil {
+		return h
+	}
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		return host[1 : len(host)-1]
+	}
+	return host
 }
 
 func invokeLambda(payload []byte) (*events.APIGatewayProxyResponse, error) {
@@ -211,14 +234,8 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	portDelimiterIndex := strings.LastIndexByte(r.RemoteAddr, ':')
-	remoteIP := r.RemoteAddr[0:portDelimiterIndex]
-	domainName, _, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		log.Printf("Error parsing Host header: %v", err)
-		http.Error(w, "Error parsing Host header", http.StatusBadRequest)
-		return
-	}
+	clientIP := remoteIP(r)
+	domainName := hostWithoutPort(r.Host)
 
 	request := &events.APIGatewayV2HTTPRequest{
 		Version:        "2.0",
@@ -245,7 +262,7 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 				Method:   r.Method,
 				Path:     r.URL.Path,
 				Protocol: r.Proto,
-				SourceIP: remoteIP,
+				SourceIP: clientIP,
 			},
 		},
 		StageVariables:  nil,
@@ -268,7 +285,7 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 	}
 
 	request.Headers["x-amzn-trace-id"] = "Root=0-00000000-000000000000000000000000"
-	request.Headers["x-forwarded-for"] = remoteIP
+	request.Headers["x-forwarded-for"] = clientIP
 	request.Headers["x-forwarded-port"] = strconv.Itoa(port)
 	request.Headers["x-forwarded-proto"] = protocol
 
@@ -318,7 +335,6 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(responseBody)
 	if err != nil {
 		log.Printf("Error writing response body: %v", err)
-		http.Error(w, "Error writing response body", http.StatusInternalServerError)
 		return
 	}
 
