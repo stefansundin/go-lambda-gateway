@@ -1,4 +1,4 @@
-FROM golang AS builder
+FROM golang:1 AS builder
 WORKDIR /root
 COPY . .
 RUN \
