@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"net/rpc"
 	"net/url"
@@ -68,7 +69,7 @@ func invokeLambda(payload []byte) (*events.APIGatewayProxyResponse, error) {
 
 	var response events.APIGatewayProxyResponse
 	if payloadFormatVersion == "2.0" {
-		var jsonData map[string]interface{}
+		var jsonData map[string]any
 		err = json.Unmarshal(invokeResponse.Payload, &jsonData)
 		if err != nil {
 			return nil, err
@@ -212,15 +213,17 @@ func handleRequestV2(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	portDelimiterIndex := strings.LastIndexByte(r.RemoteAddr, ':')
 	remoteIP := r.RemoteAddr[0:portDelimiterIndex]
-	domainName := r.Host
-	if strings.ContainsRune(domainName, ':') {
-		domainName = domainName[0:strings.IndexRune(domainName, ':')]
+	domainName, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		log.Printf("Error parsing Host header: %v", err)
+		http.Error(w, "Error parsing Host header", http.StatusBadRequest)
+		return
 	}
 
 	request := &events.APIGatewayV2HTTPRequest{
 		Version:        "2.0",
 		RouteKey:       "$default",
-		RawPath:        r.URL.Path,
+		RawPath:        r.URL.EscapedPath(),
 		RawQueryString: r.URL.RawQuery,
 		Cookies:        []string{},
 		Headers: map[string]string{
